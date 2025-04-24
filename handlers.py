@@ -167,25 +167,31 @@ async def learn_ru_en(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["current_command"] = "learn_ru_en"
     await message_object.reply_text(f"Переведите слово/предложение: {translation}")
 
+async def handle_new_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    logger.info(f"Пользователь {update.effective_user.id} нажал кнопку 'Получить новое слово'")
+    await query.answer()
+
+    current_command = context.user_data.get("current_command")
+    if current_command == "learn_en_ru":
+        await learn_en_ru(update, context)
+    elif current_command == "learn_ru_en":
+        await learn_ru_en(update, context)
+        
 # Проверка ответа пользователя
 async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_answer = update.message.text.lower()
     correct_translation = context.user_data.get("current_translation", "").lower()
-    
+
     logger.info(f"Пользователь {update.effective_user.id} отправил ответ: {user_answer}")
-    
+
     if user_answer == correct_translation:
         response = "Правильно! 🎉"
     else:
         response = f"Неправильно. Правильный ответ: {correct_translation}"
-    
-    command = context.user_data.get("current_command")
-    if command == "learn_en_ru":
-        await learn_en_ru(update, context)
-    elif command == "learn_ru_en":
-        await learn_ru_en(update, context)
-    
-    await update.message.reply_text(response, reply_markup=get_main_keyboard())
+
+    # Отправляем ответ с кнопкой "Получить новое слово"
+    await update.message.reply_text(response, reply_markup=get_new_word_keyboard())
     return ConversationHandler.END
 
 # Обработка нажатия на кнопки
@@ -206,30 +212,39 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
 
 # Регистрация обработчиков
 def register_handlers(app):
+    # Сначала регистрируем ConversationHandler'ы
     conv_handler_translate = ConversationHandler(
-    entry_points=[CallbackQueryHandler(translate_command, pattern="^translate_text$")],
-    states={
-        WAITING_FOR_TRANSLATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_translation)],
-    },
-    fallbacks=[]
-)
+        entry_points=[CallbackQueryHandler(translate_command, pattern="^translate_text$")],
+        states={
+            WAITING_FOR_TRANSLATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_translation)],
+        },
+        fallbacks=[]
+    )
     app.add_handler(conv_handler_translate)
 
     conv_handler_add = ConversationHandler(
-    entry_points=[CallbackQueryHandler(add_command, pattern="^add_word$")],
-    states={
-        WAITING_FOR_ENGLISH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_english_text)],
-        WAITING_FOR_RUSSIAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_russian_text)],
-    },
-    fallbacks=[]
-)
+        entry_points=[CallbackQueryHandler(add_command, pattern="^add_word$")],
+        states={
+            WAITING_FOR_ENGLISH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_english_text)],
+            WAITING_FOR_RUSSIAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_russian_text)],
+        },
+        fallbacks=[]
+    )
     app.add_handler(conv_handler_add)
 
+    # Затем регистрируем CommandHandler'ы
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("reset", reset_command))
     app.add_handler(CommandHandler("learn_en_ru", learn_en_ru))
     app.add_handler(CommandHandler("learn_ru_en", learn_ru_en))
     app.add_handler(CommandHandler("phrases", show_all_phrases))
     app.add_handler(CommandHandler("clear", clear_database_command))
+
+    # Затем регистрируем CallbackQueryHandler для кнопки "Получить новое слово"
+    app.add_handler(CallbackQueryHandler(handle_new_word, pattern="^new_word$"))
+
+    # В конце регистрируем общий MessageHandler
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
-    app.add_handler(CallbackQueryHandler(handle_callback_query))  # Обработчик инлайн-кнопок
+
+    # И наконец, общий CallbackQueryHandler
+    app.add_handler(CallbackQueryHandler(handle_callback_query))

@@ -14,10 +14,7 @@ def get_main_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 def get_new_word_keyboard():
-    """
-    Создает инлайн-клавиатуру с кнопкой "Получить новое слово".
-    """
-    keyboard = [
+    keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Получить новое слово", callback_data="new_word")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
+    ])
+    return keyboard
