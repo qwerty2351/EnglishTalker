@@ -35,8 +35,16 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Команда /translate
 async def translate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"Пользователь {update.effective_user.id} запустил команду /translate")
-    await update.message.reply_text("Пожалуйста, отправьте текст для перевода на английский язык.")
+    # Проверяем, вызвана ли команда через кнопку или текст
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()  # Подтверждаем обработку запроса
+        message = query.message
+    else:
+        message = update.message
+
+    # Отправляем сообщение с просьбой ввести текст для перевода
+    await message.reply_text("Пожалуйста, отправьте текст для перевода на английский язык.")
     return WAITING_FOR_TRANSLATION
 
 async def handle_translation(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -58,8 +66,16 @@ async def handle_translation(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 # Команда /add
 async def add_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"Пользователь {update.effective_user.id} запустил команду /add")
-    await update.message.reply_text("Пожалуйста, отправьте слово или предложение на английском языке.")
+    # Проверяем, вызвана ли команда через кнопку или текст
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()  # Подтверждаем обработку запроса
+        message = query.message
+    else:
+        message = update.message
+
+    # Отправляем сообщение с просьбой ввести английское слово
+    await message.reply_text("Пожалуйста, отправьте слово или предложение на английском языке.")
     return WAITING_FOR_ENGLISH
 
 async def get_english_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -191,22 +207,22 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
 # Регистрация обработчиков
 def register_handlers(app):
     conv_handler_translate = ConversationHandler(
-        entry_points=[CommandHandler("translate", translate_command)],
-        states={
-            WAITING_FOR_TRANSLATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_translation)],
-        },
-        fallbacks=[]
-    )
+    entry_points=[CallbackQueryHandler(translate_command, pattern="^translate_text$")],
+    states={
+        WAITING_FOR_TRANSLATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_translation)],
+    },
+    fallbacks=[]
+)
     app.add_handler(conv_handler_translate)
 
     conv_handler_add = ConversationHandler(
-        entry_points=[CommandHandler("add", add_command)],
-        states={
-            WAITING_FOR_ENGLISH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_english_text)],
-            WAITING_FOR_RUSSIAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_russian_text)],
-        },
-        fallbacks=[]
-    )
+    entry_points=[CallbackQueryHandler(add_command, pattern="^add_word$")],
+    states={
+        WAITING_FOR_ENGLISH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_english_text)],
+        WAITING_FOR_RUSSIAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_russian_text)],
+    },
+    fallbacks=[]
+)
     app.add_handler(conv_handler_add)
 
     app.add_handler(CommandHandler("start", start))
